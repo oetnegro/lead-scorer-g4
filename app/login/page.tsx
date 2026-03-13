@@ -131,11 +131,11 @@ export default function LoginPage() {
         </div>
 
         <h2 className="text-white text-2xl font-bold text-center mb-2 leading-tight">
-          Pipeline com a eficiência da{" "}
-          <span className="text-amber-400">Análise de Dados</span>
+          Inteligência comercial para{" "}
+          <span className="text-amber-400">vendedores e gestores</span>
         </h2>
         <p className="text-gray-500 text-sm text-center mb-12 max-w-xs">
-          Priorize os deals certos, no momento certo, com scoring baseado em dados históricos reais da sua equipe.
+          Priorize os leads certos e feche mais negócios com scoring baseado em dados históricos reais da sua equipe.
         </p>
 
         <div className="grid grid-cols-3 gap-6 w-full max-w-sm">

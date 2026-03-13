@@ -84,8 +84,8 @@ export function WelcomeModal() {
             Bem-vindo ao Lead Scorer
           </h2>
           <p className="text-sm text-gray-400 max-w-sm mx-auto">
-            Inteligência de pipeline para gestores G4. Priorize os leads certos
-            e feche mais negócios.
+            Inteligência comercial para vendedores e gestores da G4. Priorize
+            os leads certos e feche mais negócios.
           </p>
 
           {/* Close button */}
