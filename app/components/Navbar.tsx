@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { WELCOME_STORAGE_KEY } from "./WelcomeModal";
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -32,7 +33,7 @@ export function Navbar() {
   }
 
   function reopenWelcome() {
-    localStorage.removeItem("g4-welcome-v2");
+    localStorage.removeItem(WELCOME_STORAGE_KEY);
     window.dispatchEvent(new CustomEvent("reopen-welcome"));
     setMenuOpen(false);
   }

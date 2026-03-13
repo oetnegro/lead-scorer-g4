@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "g4-welcome-v2";
+export const WELCOME_STORAGE_KEY = "g4-welcome-v2";
+
+// Defina NEXT_PUBLIC_DEMO_VIDEO_URL no Vercel/env para exibir o vídeo de demo.
+// Formato: https://www.youtube.com/embed/SEU_VIDEO_ID
+const DEMO_VIDEO_URL = process.env.NEXT_PUBLIC_DEMO_VIDEO_URL ?? "";
 
 const features = [
   {
+    id: "pipeline",
     icon: "🎯",
     title: "Pipeline Inteligente",
     desc: "Todos os leads rankeados por score. Filtre por prioridade, risco ou etapa em um clique.",
@@ -13,6 +18,7 @@ const features = [
     iconBg: "bg-emerald-500/15",
   },
   {
+    id: "insights",
     icon: "📊",
     title: "Insights de Dados",
     desc: "Distribuição de scores, tendências por produto e performance por vendedor em gráficos interativos.",
@@ -20,6 +26,7 @@ const features = [
     iconBg: "bg-blue-500/15",
   },
   {
+    id: "team",
     icon: "👥",
     title: "Visão de Equipe",
     desc: "Win rate e volume de cada vendedor. Identifique quem precisa de suporte e quem está se destacando.",
@@ -27,6 +34,7 @@ const features = [
     iconBg: "bg-purple-500/15",
   },
   {
+    id: "slack",
     icon: "📡",
     title: "Alertas no Slack",
     desc: "Relatórios automáticos diários com top leads e zumbis direto no canal do seu time.",
@@ -40,7 +48,7 @@ export function WelcomeModal() {
 
   useEffect(() => {
     // Show on first visit
-    if (!localStorage.getItem(STORAGE_KEY)) {
+    if (!localStorage.getItem(WELCOME_STORAGE_KEY)) {
       setOpen(true);
     }
 
@@ -53,7 +61,7 @@ export function WelcomeModal() {
   }, []);
 
   function dismiss() {
-    localStorage.setItem(STORAGE_KEY, "1");
+    localStorage.setItem(WELCOME_STORAGE_KEY, "1");
     setOpen(false);
   }
 
@@ -73,7 +81,7 @@ export function WelcomeModal() {
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-xl bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-xl bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl overflow-x-hidden overflow-y-auto max-h-[90vh]">
 
         {/* Header */}
         <div className="relative px-6 pt-7 pb-5 text-center border-b border-gray-800">
@@ -90,6 +98,7 @@ export function WelcomeModal() {
 
           {/* Close button */}
           <button
+            type="button"
             onClick={dismiss}
             className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-gray-800 transition-colors"
             aria-label="Fechar"
@@ -100,11 +109,26 @@ export function WelcomeModal() {
           </button>
         </div>
 
+        {/* Demo video — aparece quando NEXT_PUBLIC_DEMO_VIDEO_URL estiver preenchida */}
+        {DEMO_VIDEO_URL && (
+          <div className="px-5 pt-5">
+            <div className="rounded-xl overflow-hidden border border-gray-800 aspect-video">
+              <iframe
+                src={DEMO_VIDEO_URL}
+                className="w-full h-full"
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="Demo Lead Scorer"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Feature tiles */}
         <div className="grid grid-cols-2 gap-3 p-5">
           {features.map((f) => (
             <div
-              key={f.title}
+              key={f.id}
               className={`rounded-xl border p-4 ${f.color}`}
             >
               <div className={`w-9 h-9 rounded-lg ${f.iconBg} flex items-center justify-center text-lg mb-3`}>
@@ -119,6 +143,7 @@ export function WelcomeModal() {
         {/* Footer CTA */}
         <div className="px-5 pb-5">
           <button
+            type="button"
             onClick={dismiss}
             className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors"
           >
