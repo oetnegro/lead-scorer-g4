@@ -128,6 +128,13 @@ function CloseForm({ onConfirm, onCancel, saving }: CloseFormProps) {
 }
 
 // ── Main modal ──────────────────────────────────────────────────────────────
+interface AiAnalysis {
+  urgencia: "alta" | "media" | "baixa";
+  resumo: string;
+  acao: string;
+  raciocinio: string;
+}
+
 export function DealModal({ deal, onClose, onUpdate }: DealModalProps) {
   const [note, setNote]               = useState(() => loadNotes()[deal.opportunity_id] ?? "");
   const [saved, setSaved]             = useState(false);
@@ -136,6 +143,29 @@ export function DealModal({ deal, onClose, onUpdate }: DealModalProps) {
   const [saving, setSaving]           = useState(false);
   const [actionResult, setActionResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [currentStage, setCurrentStage] = useState(deal.deal_stage);
+  const [aiLoading, setAiLoading]     = useState(false);
+  const [aiResult, setAiResult]       = useState<AiAnalysis | null>(null);
+  const [aiError, setAiError]         = useState<string | null>(null);
+
+  async function handleAnalyze() {
+    setAiLoading(true);
+    setAiResult(null);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deal),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erro desconhecido");
+      setAiResult(data);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Erro ao analisar.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   const color = scoreColor(deal.score);
   const badgeColor = {
@@ -338,6 +368,64 @@ export function DealModal({ deal, onClose, onUpdate }: DealModalProps) {
                     {saved ? "Salvo ✓" : "Salvar nota"}
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* ── AI Coach ── */}
+            <div className="px-6 pb-4">
+              <div className="border-t border-gray-800 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-gray-400 text-xs uppercase tracking-wider">Coach de IA</p>
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={aiLoading}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition-colors disabled:opacity-50"
+                  >
+                    {aiLoading ? (
+                      <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analisando...</>
+                    ) : (
+                      <>✨ Analisar deal</>
+                    )}
+                  </button>
+                </div>
+
+                {aiError && (
+                  <div className="rounded-xl p-3 text-xs bg-red-500/10 border border-red-500/25 text-red-400">
+                    {aiError}
+                  </div>
+                )}
+
+                {aiResult && (
+                  <div className="rounded-xl border border-violet-500/25 bg-violet-500/5 p-4 space-y-3">
+                    {/* Urgência badge */}
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                        aiResult.urgencia === "alta"
+                          ? "bg-red-500/15 text-red-400 border-red-500/30"
+                          : aiResult.urgencia === "media"
+                          ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                          : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                      }`}>
+                        {aiResult.urgencia === "alta" ? "🔴 Urgência alta" : aiResult.urgencia === "media" ? "🟡 Urgência média" : "🟢 Urgência baixa"}
+                      </span>
+                    </div>
+
+                    {/* Resumo */}
+                    <p className="text-white text-sm font-semibold leading-snug">{aiResult.resumo}</p>
+
+                    {/* Ação recomendada */}
+                    <div className="bg-violet-500/10 rounded-lg p-3">
+                      <p className="text-violet-300 text-[10px] uppercase tracking-wider font-semibold mb-1">Ação recomendada</p>
+                      <p className="text-gray-200 text-sm leading-relaxed">{aiResult.acao}</p>
+                    </div>
+
+                    {/* Raciocínio */}
+                    <div>
+                      <p className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold mb-1">Raciocínio</p>
+                      <p className="text-gray-400 text-xs leading-relaxed">{aiResult.raciocinio}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

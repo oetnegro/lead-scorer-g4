@@ -7,7 +7,6 @@ import { DealModal } from "./components/DealModal";
 import { ScoreBreakdown } from "./components/ScoreBreakdown";
 import { Navbar } from "./components/Navbar";
 import { InfoTooltip } from "./components/InfoTooltip";
-import { WelcomeModal } from "./components/WelcomeModal";
 
 type QuickFilter = "all" | "healthy" | "atRisk" | "prospecting" | "zombie";
 
@@ -94,7 +93,7 @@ function KpiCard({
         )}
       </p>
       <p className={`text-4xl font-black tabular-nums ${color}`}>{value}</p>
-      {sub && <p className="text-[10px] text-gray-600 mt-1 leading-tight">{sub}</p>}
+      {sub && <p className="text-[10px] text-gray-300 mt-1 leading-tight">{sub}</p>}
     </div>
   );
 }
@@ -271,9 +270,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* Welcome guide popup */}
-      <WelcomeModal />
-
       {/* Deal detail modal */}
       {selectedDeal && (
         <DealModal

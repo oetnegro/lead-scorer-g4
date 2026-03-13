@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -17,7 +16,6 @@ export function Navbar() {
   const [role, setRole]         = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [logoErr, setLogoErr]   = useState(false);
 
   useEffect(() => { setRole(getCookie("role")); }, []);
   useEffect(() => { setMenuOpen(false); }, [path]); // close on navigate
@@ -73,19 +71,8 @@ export function Navbar() {
 
         {/* Brand */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center overflow-hidden">
-            {logoErr ? (
-              <span className="text-amber-400 font-black text-xs tracking-widest">G4</span>
-            ) : (
-              <Image
-                src="/g4-logo.png"
-                alt="G4"
-                width={32}
-                height={32}
-                className="w-full h-full object-contain p-0.5"
-                onError={() => setLogoErr(true)}
-              />
-            )}
+          <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+            <span className="text-amber-400 font-black text-xs tracking-widest">G4</span>
           </div>
           <div className="hidden sm:block">
             <div className="text-white font-bold text-sm leading-tight">Lead Scorer</div>
