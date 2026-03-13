@@ -41,7 +41,7 @@ Responda SOMENTE com um JSON válido neste formato exato (sem markdown, sem \`\`
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
 
@@ -51,7 +51,8 @@ Responda SOMENTE com um JSON válido neste formato exato (sem markdown, sem \`\`
 
     return NextResponse.json(parsed);
   } catch (err) {
-    console.error("Gemini error:", err);
-    return NextResponse.json({ error: "Falha ao analisar o deal. Tente novamente." }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Gemini error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
