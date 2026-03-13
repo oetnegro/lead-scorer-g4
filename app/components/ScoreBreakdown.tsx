@@ -150,7 +150,7 @@ export function ScoreBreakdown({
           <p className="text-gray-400 text-xs leading-relaxed bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
             O score soma até <span className="text-white font-medium">100 pontos</span> divididos em 4 componentes.
             Quanto maior, <span className="text-white font-medium">mais vale priorizar este lead agora</span>.
-            Expanda o "Como é calculado" em cada bloco para entender os critérios.
+            Expanda o &quot;Como é calculado&quot; em cada bloco para entender os critérios.
           </p>
         </div>
 

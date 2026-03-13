@@ -444,13 +444,14 @@ function AgentsTab() {
   );
 }
 
+// Products list — module-level constant so useCallback doesn't need it as a dep
+const PRODUCTS = ["GTK 500", "GTX Plus Pro", "GTX Pro", "MG Advanced", "GTX Plus Basic", "GTX Basic", "MG Special"];
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [meta, setMeta]   = useState<Meta>({ agents: [], products: [], stages: [] });
   const [tab, setTab]     = useState<Tab>("upload");
-
-  const PRODUCTS = ["GTK 500", "GTX Plus Pro", "GTX Pro", "MG Advanced", "GTX Plus Basic", "GTX Basic", "MG Special"];
 
   const loadStats = useCallback(async () => {
     const [statsRes, metaRes, agentsRes] = await Promise.all([

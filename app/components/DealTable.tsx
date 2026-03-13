@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { type ScoredDeal, scoreColor, scoreLabel } from "@/lib/scoring";
+import { type ScoredDeal, scoreLabel } from "@/lib/scoring";
 import { getActionTag, getUrgencyNote } from "@/lib/actions";
 import { ScoreBadge } from "./ScoreBadge";
 
@@ -66,7 +66,6 @@ export function DealTable({ deals, onRowClick, onScoreClick }: DealTableProps) {
               const action = getActionTag(deal);
               const urgency = getUrgencyNote(deal);
               const label = scoreLabel(deal.score);
-              const color = scoreColor(deal.score);
               const lblClass = priorityColor[label] ?? "text-gray-400";
 
               return (
@@ -135,7 +134,7 @@ export function DealTable({ deals, onRowClick, onScoreClick }: DealTableProps) {
                   {/* Score + priority label */}
                   <td
                     className="px-4 py-3 text-center"
-                    onClick={(e) => { e.stopPropagation(); onScoreClick ? onScoreClick(deal) : onRowClick(deal); }}
+                    onClick={(e) => { e.stopPropagation(); if (onScoreClick) { onScoreClick(deal); } else { onRowClick(deal); } }}
                   >
                     <div className="flex flex-col items-center gap-0.5">
                       <ScoreBadge score={deal.score} />
