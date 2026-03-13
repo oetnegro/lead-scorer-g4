@@ -100,10 +100,11 @@ function KpiCard({
 
 // Collapsible "Como usar" guide panel
 function HowToUsePanel() {
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem("pipeline-howto-closed") !== "1";
-  });
+  const [open, setOpen] = useState(true); // always true on SSR, corrected after mount
+
+  useEffect(() => {
+    setOpen(localStorage.getItem("pipeline-howto-closed") !== "1");
+  }, []);
 
   function toggle() {
     const next = !open;
