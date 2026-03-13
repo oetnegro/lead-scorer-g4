@@ -1,101 +1,418 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { type ScoredDeal } from "@/lib/scoring";
+import { DealTable } from "./components/DealTable";
+import { DealModal } from "./components/DealModal";
+import { ScoreBreakdown } from "./components/ScoreBreakdown";
+import { Navbar } from "./components/Navbar";
+import { InfoTooltip } from "./components/InfoTooltip";
+
+type QuickFilter = "all" | "highPriority" | "atRisk" | "zombie";
+
+interface Meta {
+  agents: string[];
+  managers: string[];
+  regions: string[];
+  stages: string[];
+}
+
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="flex flex-col gap-1">
+      <label className="text-xs text-gray-500 uppercase tracking-wider">
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-gray-900 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 focus:border-gray-500 focus:outline-none min-w-[160px]"
+      >
+        <option value="">Todos</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+// Clickable KPI card
+function KpiCard({
+  label,
+  value,
+  tooltip,
+  color,
+  active,
+  borderColor,
+  onClick,
+}: {
+  label: string;
+  value: number | string;
+  tooltip: string;
+  color: string;
+  active: boolean;
+  borderColor?: string;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      className={`
+        text-left bg-gray-900 rounded-2xl p-5 w-full transition-all cursor-pointer select-none
+        ${active
+          ? `${borderColor ?? "border-blue-500"} border-2 ring-1 ring-blue-500/20`
+          : `border ${borderColor ?? "border-gray-800"} hover:border-gray-600`
+        }
+      `}
+    >
+      <p className="text-gray-500 text-xs uppercase tracking-wider mb-1 flex items-center">
+        {label}
+        <InfoTooltip text={tooltip} />
+        {active && (
+          <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full font-medium">
+            filtrando
+          </span>
+        )}
+      </p>
+      <p className={`text-4xl font-black tabular-nums ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+// Collapsible "Como usar" guide panel
+function HowToUsePanel() {
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("pipeline-howto-closed") !== "1";
+  });
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    localStorage.setItem("pipeline-howto-closed", next ? "0" : "1");
+  }
+
+  return (
+    <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl overflow-hidden">
+      <button
+        onClick={toggle}
+        className="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-blue-500/5 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-blue-400 text-sm font-semibold">📋 Como usar o Pipeline</span>
+          <span className="text-xs text-blue-400/60">Guia rápido para priorizar seus leads</span>
         </div>
+        <span className="text-gray-500 text-xs">{open ? "▲ Ocultar" : "▼ Mostrar"}</span>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 border-t border-blue-500/10">
+          {[
+            {
+              icon: "🚀",
+              title: "Prioridade máxima",
+              desc: "Score ≥70, Engaging ≤30 dias. Feche hoje — alta probabilidade de conversão.",
+            },
+            {
+              icon: "⚠️",
+              title: "Contato urgente",
+              desc: "Engaging entre 31–90 dias. Risco crescente. Ligue, envie proposta, crie senso de urgência.",
+            },
+            {
+              icon: "💀",
+              title: "Revisar ou encerrar",
+              desc: "Engaging +90 dias. Zumbi. Negocie condições novas ou encerre para limpar o pipeline.",
+            },
+            {
+              icon: "➡️",
+              title: "Mover p/ Engaging",
+              desc: "Deal em Prospecting qualificado. Avance a conversa e inicie a proposta formal.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="flex gap-2 pt-3">
+              <span className="text-lg shrink-0">{item.icon}</span>
+              <div>
+                <p className="text-xs font-semibold text-gray-300">{item.title}</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const [deals, setDeals] = useState<ScoredDeal[]>([]);
+  const [selectedDeal, setSelectedDeal] = useState<ScoredDeal | null>(null);
+  const [scoreBreakdownDeal, setScoreBreakdownDeal] = useState<ScoredDeal | null>(null);
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [meta, setMeta] = useState<Meta>({
+    agents: [],
+    managers: [],
+    regions: [],
+    stages: [],
+  });
+  const [loading, setLoading] = useState(true);
+
+  const [agent, setAgent] = useState("");
+  const [manager, setManager] = useState("");
+  const [region, setRegion] = useState("");
+  const [stage, setStage] = useState("");
+
+  useEffect(() => {
+    fetch("/api/meta")
+      .then((r) => r.json())
+      .then(setMeta)
+      .catch(console.error);
+  }, []);
+
+  const fetchDeals = useCallback(() => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (agent) params.set("agent", agent);
+    if (manager) params.set("manager", manager);
+    if (region) params.set("region", region);
+    if (stage) params.set("stage", stage);
+
+    fetch(`/api/deals?${params.toString()}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setDeals(data);
+        setLoading(false);
+      })
+      .catch(console.error);
+  }, [agent, manager, region, stage]);
+
+  useEffect(() => {
+    fetchDeals();
+  }, [fetchDeals]);
+
+  // KPI counts always from full filtered set
+  const highPriority = deals.filter((d) => d.score >= 70).length;
+  const atRisk = deals.filter(
+    (d) => d.deal_stage === "Engaging" && d.days_in_stage > 30
+  ).length;
+  const zombies = deals.filter(
+    (d) => d.deal_stage === "Engaging" && d.days_in_stage > 90
+  ).length;
+  const avgScore =
+    deals.length > 0
+      ? Math.round(deals.reduce((s, d) => s + d.score, 0) / deals.length)
+      : 0;
+
+  // Quick-filter applied client-side on top of API results
+  const displayedDeals = useMemo(() => {
+    if (quickFilter === "highPriority") return deals.filter((d) => d.score >= 70);
+    if (quickFilter === "atRisk")
+      return deals.filter((d) => d.deal_stage === "Engaging" && d.days_in_stage > 30);
+    if (quickFilter === "zombie")
+      return deals.filter((d) => d.deal_stage === "Engaging" && d.days_in_stage > 90);
+    return deals;
+  }, [deals, quickFilter]);
+
+  // Extra stats derived from current displayed set (updates with vendor/region/quick filters)
+  const avgDays = useMemo(() => {
+    if (displayedDeals.length === 0) return 0;
+    return Math.round(
+      displayedDeals.reduce((s, d) => s + d.days_in_stage, 0) / displayedDeals.length
+    );
+  }, [displayedDeals]);
+
+  const topProduct = useMemo(() => {
+    if (displayedDeals.length === 0) return "—";
+    const freq: Record<string, number> = {};
+    for (const d of displayedDeals) {
+      if (d.product) freq[d.product] = (freq[d.product] ?? 0) + 1;
+    }
+    return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+  }, [displayedDeals]);
+
+  const handleKpiClick = (filter: QuickFilter) => {
+    setQuickFilter((prev) => (prev === filter ? "all" : filter));
+  };
+
+  const quickFilterLabel: Record<QuickFilter, string> = {
+    all: "",
+    highPriority: "Alta prioridade (score ≥ 70)",
+    atRisk: "Em risco (Engaging +30d)",
+    zombie: "Zumbis (Engaging +90d)",
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-950 text-gray-100">
+      {/* Deal detail modal */}
+      {selectedDeal && (
+        <DealModal
+          deal={selectedDeal}
+          onClose={() => setSelectedDeal(null)}
+          onUpdate={() => { setSelectedDeal(null); fetchDeals(); }}
+        />
+      )}
+
+      {/* Score breakdown — opened directly by clicking the score badge in the table */}
+      {scoreBreakdownDeal && (
+        <ScoreBreakdown
+          score={scoreBreakdownDeal.score}
+          components={scoreBreakdownDeal.components}
+          dealName={scoreBreakdownDeal.account || scoreBreakdownDeal.opportunity_id}
+          onClose={() => setScoreBreakdownDeal(null)}
+        />
+      )}
+
+      <Navbar />
+
+      <main className="max-w-screen-2xl mx-auto px-6 py-8 space-y-6">
+        {/* KPI cards — clicáveis para filtrar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <KpiCard
+            label="Deals ativos"
+            value={deals.length}
+            tooltip="Total de deals em Engaging ou Prospecting. Exclui Won e Lost. Clique para ver todos os deals."
+            color="text-white"
+            active={quickFilter === "all"}
+            borderColor={quickFilter === "all" ? "border-blue-600" : "border-gray-800"}
+            onClick={() => setQuickFilter("all")}
+          />
+          <KpiCard
+            label="Alta prioridade"
+            value={highPriority}
+            tooltip="Deals com score ≥ 70. Foque aqui primeiro — alta combinação de produto bom, conta qualificada e vendedor experiente. Clique para filtrar."
+            color="text-emerald-400"
+            active={quickFilter === "highPriority"}
+            borderColor={quickFilter === "highPriority" ? "border-emerald-500" : "border-gray-800"}
+            onClick={() => handleKpiClick("highPriority")}
+          />
+          <KpiCard
+            label="Em risco (+30d)"
+            value={atRisk}
+            tooltip="Deals em Engaging há mais de 30 dias sem fechar. O ciclo médio de fechamento é 52 dias — acima de 30 dias a probabilidade de fechar começa a cair. Clique para filtrar."
+            color="text-amber-400"
+            active={quickFilter === "atRisk"}
+            borderColor={quickFilter === "atRisk" ? "border-amber-500" : "border-amber-900/40"}
+            onClick={() => handleKpiClick("atRisk")}
+          />
+          <KpiCard
+            label="Zumbis (+90d)"
+            value={zombies}
+            tooltip="Deals em Engaging há mais de 90 dias. Com ciclo médio de 52 dias, esses deals estão muito além do esperado — precisam de revisão urgente: avançar, renegociar ou encerrar. Clique para filtrar."
+            color="text-red-400"
+            active={quickFilter === "zombie"}
+            borderColor={quickFilter === "zombie" ? "border-red-500" : "border-red-900/40"}
+            onClick={() => handleKpiClick("zombie")}
+          />
+        </div>
+
+        {/* How-to guide — collapsible, persisted in localStorage */}
+        <HowToUsePanel />
+
+        {/* Filters + Stats bar */}
+        <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-5">
+          <div className="flex flex-wrap gap-4 items-end">
+            <Select label="Vendedor" value={agent} onChange={setAgent} options={meta.agents} />
+            <Select label="Manager" value={manager} onChange={setManager} options={meta.managers} />
+            <Select label="Região" value={region} onChange={setRegion} options={meta.regions} />
+            <Select label="Stage" value={stage} onChange={setStage} options={meta.stages} />
+
+            {(agent || manager || region || stage) && (
+              <button
+                onClick={() => {
+                  setAgent(""); setManager(""); setRegion(""); setStage("");
+                }}
+                className="text-sm text-gray-400 hover:text-white px-3 py-2 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors"
+              >
+                Limpar filtros ✕
+              </button>
+            )}
+
+            {/* Stats — update dynamically with every filter change */}
+            <div className="ml-auto flex items-end gap-6">
+              <div className="text-right">
+                <p className="text-xs text-gray-500 flex items-center justify-end gap-1">
+                  Produto top
+                  <InfoTooltip text="Produto mais presente no pipeline filtrado. Útil para entender onde o vendedor ou região concentra mais volume." />
+                </p>
+                <p className="text-lg font-black text-white truncate max-w-[120px]" title={topProduct}>
+                  {topProduct}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 flex items-center justify-end gap-1">
+                  Dias médios
+                  <InfoTooltip text="Média de dias no stage atual dos deals exibidos. Ciclo saudável = 52 dias. Acima disso, o pipeline está envelhecendo." />
+                </p>
+                <p className={`text-2xl font-black tabular-nums ${
+                  avgDays > 52 ? "text-amber-400" : avgDays > 30 ? "text-yellow-300" : "text-white"
+                }`}>
+                  {avgDays}d
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 flex items-center justify-end gap-1">
+                  Score médio
+                  <InfoTooltip text="Média dos scores do pipeline filtrado. Abaixo de 50 indica pipeline fraco ou mal-qualificado." />
+                </p>
+                <p className="text-2xl font-black text-white tabular-nums">{avgScore}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        {loading ? (
+          <div className="text-center py-20">
+            <div className="inline-block w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <p className="text-gray-500 mt-4">Calculando scores...</p>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <p className="text-sm text-gray-500">
+                  {displayedDeals.length} deal{displayedDeals.length !== 1 ? "s" : ""}
+                  {quickFilter !== "all" && (
+                    <span className="text-gray-600"> (de {deals.length} totais)</span>
+                  )}{" "}
+                  · ordenados por score · clique na linha para detalhes · clique no score para breakdown
+                </p>
+                {quickFilter !== "all" && (
+                  <span className="inline-flex items-center gap-1.5 text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-full">
+                    🔍 {quickFilterLabel[quickFilter]}
+                    <button
+                      onClick={() => setQuickFilter("all")}
+                      className="ml-0.5 hover:text-white transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+              </div>
+            </div>
+            <DealTable
+              deals={displayedDeals}
+              onRowClick={setSelectedDeal}
+              onScoreClick={setScoreBreakdownDeal}
+            />
+          </div>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
