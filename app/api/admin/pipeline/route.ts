@@ -36,14 +36,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "CSV deve ter pelo menos uma linha de dados além do cabeçalho." }, { status: 400 });
   }
 
-  const headers = lines[0].split(",").map((h: string) => h.trim().toLowerCase().replace(/\r/g, ""));
+  // Normalize: strip BOM, carriage returns, surrounding quotes
+  const normalize = (s: string) =>
+    s.replace(/^\uFEFF/, "").replace(/\r/g, "").replace(/^["']|["']$/g, "").trim().toLowerCase();
+
+  // Auto-detect delimiter: semicolon (BR/Excel), tab, or comma
+  const firstLine = lines[0].replace(/\r/g, "").replace(/^\uFEFF/, "");
+  const sep = firstLine.includes(";") ? ";" : firstLine.includes("\t") ? "\t" : ",";
+
+  const headers = firstLine.split(sep).map(normalize);
   const missing = REQUIRED_HEADERS.filter((h) => !headers.includes(h));
   if (missing.length > 0) {
     return NextResponse.json({ error: `Colunas obrigatórias faltando: ${missing.join(", ")}` }, { status: 400 });
   }
 
   const rows = lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim().replace(/\r/g, ""));
+    const values = line.split(sep).map((v) => v.replace(/\r/g, "").replace(/^["']|["']$/g, "").trim());
     const obj: Record<string, string> = {};
     headers.forEach((h, i) => { obj[h] = values[i] ?? ""; });
     return {

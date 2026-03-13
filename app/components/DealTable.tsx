@@ -51,13 +51,13 @@ export function DealTable({ deals, onRowClick, onScoreClick }: DealTableProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800 bg-gray-900/80">
-              <th className="text-left px-4 py-3 text-gray-400 font-medium whitespace-nowrap">#</th>
+              <th className="hidden sm:table-cell text-left px-4 py-3 text-gray-400 font-medium whitespace-nowrap">#</th>
               <th className="text-left px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Conta</th>
-              <th className="text-left px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Produto</th>
-              <th className="text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Ticket</th>
+              <th className="hidden md:table-cell text-left px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Produto</th>
+              <th className="hidden sm:table-cell text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Ticket</th>
               <th className="text-left px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Stage</th>
               <th className="text-right px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Dias</th>
-              <th className="text-left px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Vendedor</th>
+              <th className="hidden md:table-cell text-left px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Vendedor</th>
               <th className="text-center px-4 py-3 text-gray-400 font-medium whitespace-nowrap">Score</th>
             </tr>
           </thead>
@@ -78,7 +78,7 @@ export function DealTable({ deals, onRowClick, onScoreClick }: DealTableProps) {
                     hover:bg-gray-800/60
                   `}
                 >
-                  <td className="px-4 py-3 text-gray-600 tabular-nums">
+                  <td className="hidden sm:table-cell px-4 py-3 text-gray-600 tabular-nums">
                     {globalOffset + idx + 1}
                   </td>
 
@@ -106,9 +106,9 @@ export function DealTable({ deals, onRowClick, onScoreClick }: DealTableProps) {
                     </div>
                   </td>
 
-                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">{deal.product}</td>
+                  <td className="hidden md:table-cell px-4 py-3 text-gray-300 whitespace-nowrap">{deal.product}</td>
 
-                  <td className="px-4 py-3 text-right tabular-nums text-gray-300 whitespace-nowrap">
+                  <td className="hidden sm:table-cell px-4 py-3 text-right tabular-nums text-gray-300 whitespace-nowrap">
                     {formatCurrency(deal.product_price)}
                   </td>
 
@@ -129,7 +129,7 @@ export function DealTable({ deals, onRowClick, onScoreClick }: DealTableProps) {
                     </span>
                   </td>
 
-                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{deal.sales_agent}</td>
+                  <td className="hidden md:table-cell px-4 py-3 text-gray-400 whitespace-nowrap">{deal.sales_agent}</td>
 
                   {/* Score + priority label */}
                   <td

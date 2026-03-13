@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lead Scorer — G4 Educação Challenge
 
-## Getting Started
+Ferramenta de priorização de pipeline B2B para equipes de vendas.
+Desenvolvida por **Lucas Honda** como parte do processo seletivo para AI Master.
 
-First, run the development server:
+## Setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse em `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Estrutura
 
-## Learn More
+```
+submissions/lucas-honda/
+├── app/
+│   ├── page.tsx              # Dashboard do Vendedor
+│   ├── manager/page.tsx      # Visão do Manager
+│   ├── components/
+│   │   ├── DealTable.tsx     # Tabela de deals com score
+│   │   ├── ScoreBadge.tsx    # Badge colorido (verde/amarelo/vermelho)
+│   │   ├── ScoreBreakdown.tsx# Modal com breakdown dos 4 fatores
+│   │   └── ManagerView.tsx   # Cards por agente + ranking
+│   └── api/
+│       ├── deals/            # GET — deals ativos com score
+│       ├── all-deals/        # GET — todos os deals (para manager)
+│       └── meta/             # GET — opções de filtros
+├── lib/
+│   ├── data.ts               # Parse e merge dos 4 CSVs (servidor)
+│   └── scoring.ts            # Lógica de score (4 componentes)
+└── data/                     # CSVs originais
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Lógica de Score (0–100 pts)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**A. Stage + Momentum (30pts)** — Engaging <30d=30, 30-60d=22, 60-180d=12, >180d=4 (zumbi)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**B. Produto / Ticket (25pts)** — GTK 500=25 até MG Special=3
 
-## Deploy on Vercel
+**C. Qualidade da Conta (25pts)** — Enterprise=25 até sem conta=0
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**D. Win Rate do Agente (20pts)** — Calculado do histórico real de Won/Lost

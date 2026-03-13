@@ -6,7 +6,7 @@ import { Navbar } from "../components/Navbar";
 interface Stats { total: number; active: number; won: number; lost: number }
 interface Meta  { agents: string[]; products: string[]; stages: string[] }
 
-type Tab = "upload" | "add" | "manage" | "agents";
+type Tab = "upload" | "add" | "manage" | "agents" | "slack";
 
 // ── Reusable field components ──────────────────────────────────────────────────
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -230,7 +230,7 @@ function ManageTab({ onDone }: { onDone: () => void }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/deals");
+    const res = await fetch("/api/deals", { cache: "no-store" });
     const data = await res.json();
     setLeads(data.slice(0, 200)); // show top 200 scored deals
     setLoading(false);
@@ -321,7 +321,7 @@ function ManageTab({ onDone }: { onDone: () => void }) {
 // ── Agents Tab ────────────────────────────────────────────────────────────────
 interface Agent { sales_agent: string; manager: string; regional_office: string }
 
-function AgentsTab() {
+function AgentsTab({ onDone }: { onDone: () => void }) {
   const [agents, setAgents]   = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -335,7 +335,7 @@ function AgentsTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/agents");
+    const res = await fetch("/api/admin/agents", { cache: "no-store" });
     const data = await res.json();
     setAgents(data.agents ?? []);
     setLoading(false);
@@ -353,7 +353,7 @@ function AgentsTab() {
     });
     const data = await res.json();
     setSaving(false);
-    if (res.ok) { setMsg({ ok: true, text: `Vendedor "${name.trim()}" adicionado.` }); setName(""); setMgr(""); load(); }
+    if (res.ok) { setMsg({ ok: true, text: `Vendedor "${name.trim()}" adicionado.` }); setName(""); setMgr(""); load(); onDone(); }
     else setMsg({ ok: false, text: data.error ?? "Erro ao adicionar." });
   }
 
@@ -366,7 +366,7 @@ function AgentsTab() {
     });
     const data = await res.json();
     setDeleting(null);
-    if (res.ok) { setMsg({ ok: true, text: `"${agentName}" removido.` }); load(); }
+    if (res.ok) { setMsg({ ok: true, text: `"${agentName}" removido.` }); load(); onDone(); }
     else setMsg({ ok: false, text: data.error ?? "Erro ao remover." });
   }
 
@@ -444,6 +444,243 @@ function AgentsTab() {
   );
 }
 
+// ── Slack Tab ──────────────────────────────────────────────────────────────────
+const SETUP_SQL = `create table if not exists app_settings (
+  key        text primary key,
+  value      text not null,
+  updated_at timestamptz default now()
+);
+alter table app_settings enable row level security;`;
+
+function SlackTab() {
+  type Status = "idle" | "loading" | "ok" | "error";
+
+  const [config, setConfig]           = useState<{ slack_configured: boolean; slack_webhook_masked?: string; table_missing?: boolean } | null>(null);
+  const [webhookInput, setWebhookInput] = useState("");
+  const [saveStatus, setSaveStatus]   = useState<Status>("idle");
+  const [saveMsg, setSaveMsg]         = useState("");
+  const [morningStatus, setMorningStatus] = useState<Status>("idle");
+  const [eveningStatus, setEveningStatus] = useState<Status>("idle");
+  const [morningMsg, setMorningMsg]   = useState("");
+  const [eveningMsg, setEveningMsg]   = useState("");
+  const [copied, setCopied]           = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings", { cache: "no-store" })
+      .then((r) => r.json())
+      .then(setConfig)
+      .catch(() => setConfig({ slack_configured: false }));
+  }, []);
+
+  async function saveWebhook() {
+    if (!webhookInput.trim().startsWith("https://hooks.slack.com/")) {
+      setSaveStatus("error");
+      setSaveMsg("URL inválida. Deve começar com https://hooks.slack.com/");
+      return;
+    }
+    setSaveStatus("loading");
+    const res  = await fetch("/api/admin/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "slack_webhook_url", value: webhookInput.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setSaveStatus("error");
+      setSaveMsg(data.error === "table_missing"
+        ? "Tabela app_settings não encontrada. Crie-a no Supabase usando o SQL abaixo."
+        : data.error ?? "Erro ao salvar.");
+    } else {
+      setSaveStatus("ok");
+      setSaveMsg("Webhook salvo! Teste o envio abaixo.");
+      setConfig({ slack_configured: true, slack_webhook_masked: webhookInput.trim().substring(0, 40) + "…" });
+      setWebhookInput("");
+    }
+  }
+
+  async function sendSlack(type: "morning" | "evening") {
+    const setStatus = type === "morning" ? setMorningStatus : setEveningStatus;
+    const setMsg    = type === "morning" ? setMorningMsg    : setEveningMsg;
+    setStatus("loading");
+    try {
+      const res  = await fetch(`/api/slack/report?type=${type}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus("error"); setMsg(data.error ?? "Erro desconhecido.");
+      } else {
+        setStatus("ok"); setMsg(`Mensagem enviada! (${data.sent} deals analisados)`);
+      }
+    } catch {
+      setStatus("error"); setMsg("Falha na requisição.");
+    }
+  }
+
+  function copySQL() {
+    navigator.clipboard.writeText(SETUP_SQL).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  const isConfigured = config?.slack_configured;
+
+  return (
+    <div className="space-y-6">
+
+      {/* Header + status */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">💬</span>
+            <h3 className="text-white font-bold text-base">Conectar com Slack</h3>
+          </div>
+          <p className="text-gray-500 text-sm">
+            Receba relatórios diários do pipeline direto no Slack — sem precisar abrir a plataforma.
+          </p>
+        </div>
+        <span className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border ${
+          isConfigured
+            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+            : "bg-gray-700/40 text-gray-500 border-gray-700"
+        }`}>
+          {isConfigured ? "🟢 Conectado" : "⚪ Não configurado"}
+        </span>
+      </div>
+
+      {/* If connected — show masked URL */}
+      {isConfigured && config?.slack_webhook_masked && (
+        <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-4">
+          <p className="text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-1">Webhook ativo</p>
+          <p className="text-emerald-300 font-mono text-xs">{config.slack_webhook_masked}</p>
+          <button
+            onClick={() => { setConfig((c) => c ? { ...c, slack_configured: false } : c); setWebhookInput(""); }}
+            className="mt-3 text-xs text-gray-500 hover:text-gray-300 underline transition-colors"
+          >
+            Substituir webhook
+          </button>
+        </div>
+      )}
+
+      {/* Setup steps */}
+      {!isConfigured && (
+        <div className="space-y-4">
+          {/* Step 1 */}
+          <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-5">
+            <p className="text-white text-sm font-semibold mb-2">
+              <span className="text-purple-400 mr-2">①</span> Crie um Incoming Webhook no Slack
+            </p>
+            <p className="text-gray-400 text-xs mb-3">
+              Acesse o painel de apps do Slack, crie um novo app com &quot;Incoming Webhooks&quot; ativo e gere uma URL para o canal desejado.
+            </p>
+            <a
+              href="https://api.slack.com/apps"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium transition-colors"
+            >
+              → Acessar api.slack.com/apps
+            </a>
+          </div>
+
+          {/* Step 2 — table missing warning */}
+          {config?.table_missing && (
+            <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-5">
+              <p className="text-amber-400 text-sm font-semibold mb-2">⚠️ Configuração única — execute este SQL no Supabase</p>
+              <p className="text-gray-400 text-xs mb-3">Vá em Supabase → SQL Editor e execute:</p>
+              <pre className="bg-gray-950 rounded-lg p-3 text-xs text-gray-300 overflow-x-auto">{SETUP_SQL}</pre>
+              <button
+                onClick={copySQL}
+                className="mt-3 text-xs px-3 py-1.5 rounded-lg border border-gray-600 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+              >
+                {copied ? "✅ Copiado!" : "📋 Copiar SQL"}
+              </button>
+            </div>
+          )}
+
+          {/* Step 2 — URL input */}
+          <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-5 space-y-3">
+            <p className="text-white text-sm font-semibold">
+              <span className="text-purple-400 mr-2">②</span> Cole a URL do webhook
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={webhookInput}
+                onChange={(e) => setWebhookInput(e.target.value)}
+                placeholder="https://hooks.slack.com/services/T.../B.../..."
+                className="flex-1 bg-gray-900 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 focus:border-purple-500 focus:outline-none font-mono placeholder-gray-600"
+              />
+              <button
+                onClick={saveWebhook}
+                disabled={saveStatus === "loading" || !webhookInput.trim()}
+                className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 whitespace-nowrap"
+              >
+                {saveStatus === "loading" ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+            {saveStatus === "ok"    && <p className="text-emerald-400 text-xs">✅ {saveMsg}</p>}
+            {saveStatus === "error" && <p className="text-red-400 text-xs">❌ {saveMsg}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* Send buttons — always visible once configured */}
+      {isConfigured && (
+        <div>
+          <p className="text-white text-sm font-semibold mb-3">
+            <span className="text-purple-400 mr-2">③</span> Enviar relatórios agora
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
+              <div>
+                <p className="text-white text-sm font-semibold">☀️ Relatório Matinal</p>
+                <p className="text-gray-500 text-xs mt-1">Top 10 deals por score + stats · seg–sex 8h</p>
+              </div>
+              <button
+                onClick={() => sendSlack("morning")}
+                disabled={morningStatus === "loading"}
+                className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {morningStatus === "loading"
+                  ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Enviando...</>
+                  : "📤 Enviar Agora"}
+              </button>
+              {morningStatus === "ok"    && <p className="text-emerald-400 text-xs">✅ {morningMsg}</p>}
+              {morningStatus === "error" && <p className="text-red-400 text-xs">❌ {morningMsg}</p>}
+            </div>
+
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
+              <div>
+                <p className="text-white text-sm font-semibold">🌙 Resumo Noturno</p>
+                <p className="text-gray-500 text-xs mt-1">Visão geral, win rate, top 5 zumbis · seg–sex 18h</p>
+              </div>
+              <button
+                onClick={() => sendSlack("evening")}
+                disabled={eveningStatus === "loading"}
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {eveningStatus === "loading"
+                  ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Enviando...</>
+                  : "📤 Enviar Agora"}
+              </button>
+              {eveningStatus === "ok"    && <p className="text-emerald-400 text-xs">✅ {eveningMsg}</p>}
+              {eveningStatus === "error" && <p className="text-red-400 text-xs">❌ {eveningMsg}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule info */}
+      <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-5">
+        <p className="text-purple-400 text-sm font-semibold mb-2">🗓️ Agendamento automático</p>
+        <div className="space-y-1.5 text-xs text-gray-400">
+          <p>• <strong className="text-gray-300">08:00 seg–sex</strong> — Relatório Matinal (top 10 prioridades do dia)</p>
+          <p>• <strong className="text-gray-300">18:00 seg–sex</strong> — Resumo Noturno (visão geral do pipeline)</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Products list — module-level constant so useCallback doesn't need it as a dep
 const PRODUCTS = ["GTK 500", "GTX Plus Pro", "GTX Pro", "MG Advanced", "GTX Plus Basic", "GTX Basic", "MG Special"];
 
@@ -455,9 +692,9 @@ export default function AdminPage() {
 
   const loadStats = useCallback(async () => {
     const [statsRes, metaRes, agentsRes] = await Promise.all([
-      fetch("/api/admin/pipeline"),
-      fetch("/api/meta"),
-      fetch("/api/admin/agents"),   // todos os agentes do sales_teams.csv, incluindo recém-adicionados
+      fetch("/api/admin/pipeline", { cache: "no-store" }),
+      fetch("/api/meta",           { cache: "no-store" }),
+      fetch("/api/admin/agents",   { cache: "no-store" }),
     ]);
     const s = await statsRes.json();
     const m = await metaRes.json();
@@ -475,6 +712,7 @@ export default function AdminPage() {
     { id: "add",     label: "Adicionar Lead",    icon: "➕" },
     { id: "manage",  label: "Gerenciar Leads",   icon: "🗂️" },
     { id: "agents",  label: "Vendedores",        icon: "👥" },
+    { id: "slack",   label: "Slack",              icon: "📡" },
   ];
 
   return (
@@ -532,7 +770,8 @@ export default function AdminPage() {
             {tab === "upload" && <UploadTab onDone={loadStats} />}
             {tab === "add"    && <AddLeadTab meta={meta} onDone={loadStats} />}
             {tab === "manage" && <ManageTab onDone={loadStats} />}
-            {tab === "agents" && <AgentsTab />}
+            {tab === "agents" && <AgentsTab onDone={loadStats} />}
+            {tab === "slack"  && <SlackTab />}
           </div>
         </div>
 

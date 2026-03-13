@@ -7,8 +7,9 @@ import { DealModal } from "./components/DealModal";
 import { ScoreBreakdown } from "./components/ScoreBreakdown";
 import { Navbar } from "./components/Navbar";
 import { InfoTooltip } from "./components/InfoTooltip";
+import { WelcomeModal } from "./components/WelcomeModal";
 
-type QuickFilter = "all" | "highPriority" | "atRisk" | "zombie";
+type QuickFilter = "all" | "healthy" | "atRisk" | "prospecting" | "zombie";
 
 interface Meta {
   agents: string[];
@@ -53,6 +54,7 @@ function Select({
 function KpiCard({
   label,
   value,
+  sub,
   tooltip,
   color,
   active,
@@ -61,6 +63,7 @@ function KpiCard({
 }: {
   label: string;
   value: number | string;
+  sub?: string;
   tooltip: string;
   color: string;
   active: boolean;
@@ -91,6 +94,7 @@ function KpiCard({
         )}
       </p>
       <p className={`text-4xl font-black tabular-nums ${color}`}>{value}</p>
+      {sub && <p className="text-[10px] text-gray-600 mt-1 leading-tight">{sub}</p>}
     </div>
   );
 }
@@ -132,7 +136,7 @@ function HowToUsePanel() {
             {
               icon: "⚠️",
               title: "Contato urgente",
-              desc: "Engaging entre 31–90 dias. Risco crescente. Ligue, envie proposta, crie senso de urgência.",
+              desc: "Engaging entre 31–90 dias (exclui zumbis). Risco crescente. Ligue, envie proposta, crie senso de urgência.",
             },
             {
               icon: "💀",
@@ -178,7 +182,7 @@ export default function DashboardPage() {
   const [stage, setStage] = useState("");
 
   useEffect(() => {
-    fetch("/api/meta")
+    fetch("/api/meta", { cache: "no-store" })
       .then((r) => r.json())
       .then(setMeta)
       .catch(console.error);
@@ -192,7 +196,7 @@ export default function DashboardPage() {
     if (region) params.set("region", region);
     if (stage) params.set("stage", stage);
 
-    fetch(`/api/deals?${params.toString()}`)
+    fetch(`/api/deals?${params.toString()}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         setDeals(data);
@@ -206,11 +210,16 @@ export default function DashboardPage() {
   }, [fetchDeals]);
 
   // KPI counts always from full filtered set
-  const highPriority = deals.filter((d) => d.score >= 70).length;
-  const atRisk = deals.filter(
-    (d) => d.deal_stage === "Engaging" && d.days_in_stage > 30
+  // "Saudável" = Engaging ≤30 dias (on-track, dentro do ciclo ideal)
+  const healthy       = deals.filter(
+    (d) => d.deal_stage === "Engaging" && d.days_in_stage <= 30
   ).length;
-  const zombies = deals.filter(
+  // "Em risco" = 31–90 dias — EXCLUI zumbis (que já têm card próprio)
+  const atRisk        = deals.filter(
+    (d) => d.deal_stage === "Engaging" && d.days_in_stage > 30 && d.days_in_stage <= 90
+  ).length;
+  const prospecting   = deals.filter((d) => d.deal_stage === "Prospecting").length;
+  const zombies       = deals.filter(
     (d) => d.deal_stage === "Engaging" && d.days_in_stage > 90
   ).length;
   const avgScore =
@@ -220,9 +229,12 @@ export default function DashboardPage() {
 
   // Quick-filter applied client-side on top of API results
   const displayedDeals = useMemo(() => {
-    if (quickFilter === "highPriority") return deals.filter((d) => d.score >= 70);
+    if (quickFilter === "healthy")
+      return deals.filter((d) => d.deal_stage === "Engaging" && d.days_in_stage <= 30);
     if (quickFilter === "atRisk")
-      return deals.filter((d) => d.deal_stage === "Engaging" && d.days_in_stage > 30);
+      return deals.filter((d) => d.deal_stage === "Engaging" && d.days_in_stage > 30 && d.days_in_stage <= 90);
+    if (quickFilter === "prospecting")
+      return deals.filter((d) => d.deal_stage === "Prospecting");
     if (quickFilter === "zombie")
       return deals.filter((d) => d.deal_stage === "Engaging" && d.days_in_stage > 90);
     return deals;
@@ -250,14 +262,18 @@ export default function DashboardPage() {
   };
 
   const quickFilterLabel: Record<QuickFilter, string> = {
-    all: "",
-    highPriority: "Alta prioridade (score ≥ 70)",
-    atRisk: "Em risco (Engaging +30d)",
-    zombie: "Zumbis (Engaging +90d)",
+    all:          "",
+    healthy:      "Saudável (Engaging ≤30d)",
+    atRisk:       "Em risco (Engaging 31–90d)",
+    prospecting:  "Prospecting — aguardando engajamento",
+    zombie:       "Zumbis (Engaging +90d)",
   };
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
+      {/* Welcome guide popup */}
+      <WelcomeModal />
+
       {/* Deal detail modal */}
       {selectedDeal && (
         <DealModal
@@ -279,9 +295,9 @@ export default function DashboardPage() {
 
       <Navbar />
 
-      <main className="max-w-screen-2xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* KPI cards — clicáveis para filtrar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <KpiCard
             label="Deals ativos"
             value={deals.length}
@@ -292,26 +308,39 @@ export default function DashboardPage() {
             onClick={() => setQuickFilter("all")}
           />
           <KpiCard
-            label="Alta prioridade"
-            value={highPriority}
-            tooltip="Deals com score ≥ 70. Foque aqui primeiro — alta combinação de produto bom, conta qualificada e vendedor experiente. Clique para filtrar."
+            label="Saudável (≤30d)"
+            value={healthy}
+            sub={`${deals.length > 0 ? Math.round(healthy / deals.length * 100) : 0}% dos ${deals.length} ativos · ✅ Engaging no prazo`}
+            tooltip="Deals em Engaging há 30 dias ou menos — dentro do ciclo ideal de 52 dias. Foco: avançar proposta e fechar enquanto o momentum está alto. Clique para filtrar."
             color="text-emerald-400"
-            active={quickFilter === "highPriority"}
-            borderColor={quickFilter === "highPriority" ? "border-emerald-500" : "border-gray-800"}
-            onClick={() => handleKpiClick("highPriority")}
+            active={quickFilter === "healthy"}
+            borderColor={quickFilter === "healthy" ? "border-emerald-500" : "border-gray-800"}
+            onClick={() => handleKpiClick("healthy")}
           />
           <KpiCard
-            label="Em risco (+30d)"
+            label="Em risco (31–90d)"
             value={atRisk}
-            tooltip="Deals em Engaging há mais de 30 dias sem fechar. O ciclo médio de fechamento é 52 dias — acima de 30 dias a probabilidade de fechar começa a cair. Clique para filtrar."
+            sub={`${deals.length > 0 ? Math.round(atRisk / deals.length * 100) : 0}% dos ${deals.length} ativos · só ⚠️ Contato urgente`}
+            tooltip="Deals em Engaging entre 31 e 90 dias — ciclo saudável é 52d. Exclui zumbis (+90d), que aparecem no card ao lado. Clique para filtrar."
             color="text-amber-400"
             active={quickFilter === "atRisk"}
             borderColor={quickFilter === "atRisk" ? "border-amber-500" : "border-amber-900/40"}
             onClick={() => handleKpiClick("atRisk")}
           />
           <KpiCard
+            label="Prospecting"
+            value={prospecting}
+            sub={`${deals.length > 0 ? Math.round(prospecting / deals.length * 100) : 0}% dos ${deals.length} ativos · ➡️ Mover p/ Engaging`}
+            tooltip="Deals ainda em Prospecting — não iniciaram Engaging. Qualifique a conta e avance a conversa para não perder momentum. Clique para filtrar."
+            color="text-purple-400"
+            active={quickFilter === "prospecting"}
+            borderColor={quickFilter === "prospecting" ? "border-purple-500" : "border-purple-900/40"}
+            onClick={() => handleKpiClick("prospecting")}
+          />
+          <KpiCard
             label="Zumbis (+90d)"
             value={zombies}
+            sub={`${deals.length > 0 ? Math.round(zombies / deals.length * 100) : 0}% dos ${deals.length} ativos · 💀 Revisar ou encerrar`}
             tooltip="Deals em Engaging há mais de 90 dias. Com ciclo médio de 52 dias, esses deals estão muito além do esperado — precisam de revisão urgente: avançar, renegociar ou encerrar. Clique para filtrar."
             color="text-red-400"
             active={quickFilter === "zombie"}
@@ -324,7 +353,7 @@ export default function DashboardPage() {
         <HowToUsePanel />
 
         {/* Filters + Stats bar */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-5">
+        <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-4 sm:p-5">
           <div className="flex flex-wrap gap-4 items-end">
             <Select label="Vendedor" value={agent} onChange={setAgent} options={meta.agents} />
             <Select label="Manager" value={manager} onChange={setManager} options={meta.managers} />

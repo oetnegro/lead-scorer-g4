@@ -12,8 +12,8 @@ export default function ManagerPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/deals").then((r) => r.json()),
-      fetch("/api/all-deals").then((r) => r.json()),
+      fetch("/api/deals",     { cache: "no-store" }).then((r) => r.json()),
+      fetch("/api/all-deals", { cache: "no-store" }).then((r) => r.json()),
     ])
       .then(([active, all]) => {
         setActiveDeals(active);
