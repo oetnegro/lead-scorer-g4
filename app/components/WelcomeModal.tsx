@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 export const WELCOME_STORAGE_KEY = "g4-welcome-v2";
 
@@ -44,6 +45,7 @@ const features = [
 ];
 
 export function WelcomeModal() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export function WelcomeModal() {
     setOpen(false);
   }
 
-  if (!open) return null;
+  if (!open || pathname === "/login") return null;
 
   return (
     <div
