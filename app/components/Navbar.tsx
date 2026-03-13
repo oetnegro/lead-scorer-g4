@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -76,9 +77,11 @@ export function Navbar() {
             {logoErr ? (
               <span className="text-amber-400 font-black text-xs tracking-widest">G4</span>
             ) : (
-              <img
+              <Image
                 src="/g4-logo.png"
                 alt="G4"
+                width={32}
+                height={32}
                 className="w-full h-full object-contain p-0.5"
                 onError={() => setLogoErr(true)}
               />
