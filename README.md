@@ -83,7 +83,7 @@ Com os dados entendidos, usei meu agente PM customizado (Claude) para estruturar
 **Decisões que tomei — não a IA:**
 - Foco no **gestor/manager**, não só no vendedor individual — com 35 vendedores e 2.092 deals, quem precisa de visão de portfólio é o manager
 - Score **explicável por componente** — entender "por que 83?" é mais útil que só ver o número
-- **Slack** ao invés de email — gestores de vendas B2B usam Slack, não configuram SMTP
+- **Slack** ao invés de email — pesquisei que a G4 usa Slack internamente; faz sentido o relatório chegar onde o gestor já trabalha
 - **Gemini** ao invés de GPT — custo/benefício melhor para análise contextual de deals individuais
 
 ### 3. Scoring engine — 4 componentes calibrados (0–100 pts)
